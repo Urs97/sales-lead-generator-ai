@@ -12,3 +12,66 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  fullName  String?
+  company   String?
+  plan      Plan     @default(free)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Lead Lead[]
+  EmailCampaign EmailCampaign[]
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  firstName String?
+  lastName  String?
+  company   String?
+  email     String   @unique
+  phone     String?
+  source    Source
+  status    Status   @default(new)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailCampaign {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  campaignName String
+  subjectLine String
+  template    String
+  followUps   Int[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum Plan {
+  free
+  starter
+  pro
+  enterprise
+}
+
+enum Source {
+  google
+  linkedin
+  yelp
+  clutch
+  csv
+}
+
+enum Status {
+  new
+  contacted
+  interested
+  closed
+  unsubscribed
+}
