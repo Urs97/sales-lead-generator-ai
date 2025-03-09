@@ -13,65 +13,96 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  OPENED
+  CLICKED
+  BOUNCED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  UNQUALIFIED
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  fullName  String?
-  company   String?
-  plan      Plan     @default(free)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Lead Lead[]
-  EmailCampaign EmailCampaign[]
+  id             String             @id @default(cuid())
+  email          String             @unique
+  password       String
+  role           Role               @default(USER)
+  organisations  UserOrganisation[]
+  emailTemplates EmailTemplate[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model Organisation {
+  id           String             @id @default(cuid())
+  name         String
+  users        UserOrganisation[]
+  projects     Project[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model UserOrganisation {
+  userId         String
+  organisationId String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  @@id([userId, organisationId])
+}
+
+model Project {
+  id             String             @id @default(cuid())
+  name           String
+  organisationId String
+  organisation   Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  leads          Lead[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 }
 
 model Lead {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  firstName String?
-  lastName  String?
-  company   String?
-  email     String   @unique
-  phone     String?
-  source    Source
-  status    Status   @default(new)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String      @id @default(cuid())
+  name        String
+  email       String
+  company     String
+  position    String
+  status      LeadStatus  @default(NEW)
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  emailLogs   EmailLog[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-model EmailCampaign {
-  id          String   @id @default(uuid())
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  campaignName String
-  subjectLine String
-  template    String
-  followUps   Int[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model EmailTemplate {
+  id          String      @id @default(cuid())
+  subject     String
+  body        String
+  createdBy   String
+  user        User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  emailLogs   EmailLog[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-enum Plan {
-  free
-  starter
-  pro
-  enterprise
-}
-
-enum Source {
-  google
-  linkedin
-  yelp
-  clutch
-  csv
-}
-
-enum Status {
-  new
-  contacted
-  interested
-  closed
-  unsubscribed
+model EmailLog {
+  id          String        @id @default(cuid())
+  leadId      String
+  templateId  String
+  sentAt      DateTime      @default(now())
+  status      EmailStatus   @default(PENDING)
+  lead        Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
