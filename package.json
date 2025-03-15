@@ -59,6 +59,9 @@
     "typescript-eslint": "^8.20.0"
   },
   "jest": {
+    "moduleNameMapper": {
+      "^@mocks/(.*)$": "<rootDir>/mocks/$1"
+    },
     "moduleFileExtensions": [
       "js",
       "json",
