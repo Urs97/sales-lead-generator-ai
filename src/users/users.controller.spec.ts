@@ -3,7 +3,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { mockUser } from 'mocks/mock-user';
+import { mockUser } from '@mocks/mock-user';
 
 describe('UsersController', () => {
   let controller: UsersController;
