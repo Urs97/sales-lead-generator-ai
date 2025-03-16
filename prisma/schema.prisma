@@ -59,7 +59,10 @@ model UserOrganisation {
   organisationId String
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
   @@id([userId, organisationId])
+  // @@index([userId])
+  // @@index([organisationId])
 }
 
 model Project {
@@ -70,6 +73,8 @@ model Project {
   leads          Lead[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+
+  // @@index([organisationId])
 }
 
 model Lead {
@@ -84,6 +89,8 @@ model Lead {
   emailLogs   EmailLog[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  // @@index([projectId])
 }
 
 model EmailTemplate {
@@ -95,6 +102,8 @@ model EmailTemplate {
   emailLogs   EmailLog[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  // @@index([createdBy])
 }
 
 model EmailLog {
@@ -105,4 +114,7 @@ model EmailLog {
   status      EmailStatus   @default(PENDING)
   lead        Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
   template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // @@index([leadId])
+  // @@index([templateId])
 }
