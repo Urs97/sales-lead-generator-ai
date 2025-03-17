@@ -4,7 +4,7 @@ import { UsersService } from '../users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { mockUser } from '@mocks/mock-user';
-import { BadRequestException, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { validateSync } from 'class-validator';
 
 describe('UsersController', () => {
