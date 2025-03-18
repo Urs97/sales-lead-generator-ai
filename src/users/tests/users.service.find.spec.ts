@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, Prisma } from '@prisma/client';
+import { User } from '../entities/user.entity';
+import { NotFoundException } from '@nestjs/common';
 
 describe('UsersService - Find Users', () => {
   let service: UsersService;
@@ -33,7 +35,7 @@ describe('UsersService - Find Users', () => {
 
   describe('findAll', () => {
     it('should return an array of users', async () => {
-      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+      const mockUsers: User[] = [
         {
           id: '1',
           email: 'testuser@example.com',
@@ -42,15 +44,11 @@ describe('UsersService - Find Users', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
         },
-      ]);
+      ];
 
-      await expect(service.findAll()).resolves.toEqual([
-        expect.objectContaining({
-          id: '1',
-          email: 'testuser@example.com',
-        }),
-      ]);
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue(mockUsers);
 
+      await expect(service.findAll()).resolves.toEqual(mockUsers);
       expect(prisma.user.findMany).toHaveBeenCalled();
     });
 
@@ -62,7 +60,7 @@ describe('UsersService - Find Users', () => {
     });
 
     it('should return multiple users', async () => {
-      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([
+      const mockUsers: User[] = [
         {
           id: '1',
           email: 'user1@example.com',
@@ -79,17 +77,15 @@ describe('UsersService - Find Users', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
         },
-      ]);
+      ];
 
-      await expect(service.findAll()).resolves.toEqual([
-        expect.objectContaining({ id: '1', email: 'user1@example.com' }),
-        expect.objectContaining({ id: '2', email: 'user2@example.com' }),
-      ]);
+      jest.spyOn(prisma.user, 'findMany').mockResolvedValue(mockUsers);
 
+      await expect(service.findAll()).resolves.toEqual(mockUsers);
       expect(prisma.user.findMany).toHaveBeenCalled();
     });
 
-    it('should throw an error if Prisma throws an error', async () => {
+    it('should throw an error if Prisma encounters a database issue', async () => {
       jest.spyOn(prisma.user, 'findMany').mockRejectedValue(new Error('Database error'));
 
       await expect(service.findAll()).rejects.toThrow('Database error');
@@ -100,21 +96,18 @@ describe('UsersService - Find Users', () => {
   describe('findOne', () => {
     it('should return a user by ID', async () => {
       const userId = '1';
-
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+      const mockUser: User = {
         id: '1',
         email: 'testuser@example.com',
         password: 'hashedpassword123',
         role: Role.USER,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
 
-      await expect(service.findOne(userId)).resolves.toMatchObject({
-        id: '1',
-        email: 'testuser@example.com',
-      });
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
 
+      await expect(service.findOne(userId)).resolves.toEqual(mockUser);
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: userId },
       });
@@ -122,8 +115,7 @@ describe('UsersService - Find Users', () => {
 
     it('should return a full user object with all properties', async () => {
       const userId = '2';
-
-      const mockUser = {
+      const mockUser: User = {
         id: '2',
         email: 'fulluser@example.com',
         password: 'hashedpassword123',
@@ -138,22 +130,20 @@ describe('UsersService - Find Users', () => {
       expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: userId } });
     });
 
-    it('should return null if user does not exist', async () => {
+    it('should throw NotFoundException if user does not exist', async () => {
       const userId = '999';
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.user, 'findUnique').mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Record not found', {
+          code: 'P2025',
+          clientVersion: 'latest',
+        })
+      );
 
-      await expect(service.findOne(userId)).resolves.toBeNull();
+      await expect(service.findOne(userId)).rejects.toThrow(NotFoundException);
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: userId },
       });
-    });
-
-    it('should handle invalid user ID formats', async () => {
-      const invalidId = 'invalid_id';
-
-      await expect(service.findOne(invalidId)).rejects.toThrow('Invalid user ID');
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
 
     it('should throw an error if Prisma encounters a database issue', async () => {

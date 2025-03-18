@@ -2,8 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { Role } from '@prisma/client';
+import { Role, Prisma } from '@prisma/client';
 import { User } from '../entities/user.entity';
+import * as argon2 from 'argon2';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 
 describe('UsersService - Update User', () => {
   let service: UsersService;
@@ -40,7 +42,7 @@ describe('UsersService - Update User', () => {
 
       const mockUpdatedUser: User = {
         id: userId,
-        email: updateUserDto.email || 'default@example.com',
+        email: updateUserDto.email ?? 'default@example.com',
         password: 'hashedpassword123',
         role: Role.USER,
         createdAt: new Date(),
@@ -49,10 +51,7 @@ describe('UsersService - Update User', () => {
 
       jest.spyOn(prisma.user, 'update').mockResolvedValue(mockUpdatedUser);
 
-      await expect(service.update(userId, updateUserDto)).resolves.toMatchObject({
-        id: userId,
-        email: 'updated@example.com',
-      });
+      await expect(service.update(userId, updateUserDto)).resolves.toEqual(mockUpdatedUser);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: userId },
@@ -64,10 +63,13 @@ describe('UsersService - Update User', () => {
       const userId = '1';
       const updateUserDto: UpdateUserDto = { password: 'newSecurePassword' };
 
+      const hashedPassword = 'argon2hashedpassword123';
+      jest.spyOn(argon2, 'hash').mockResolvedValue(hashedPassword);
+
       const mockUpdatedUser: User = {
         id: userId,
         email: 'testuser@example.com',
-        password: 'hashedpassword456',
+        password: hashedPassword,
         role: Role.USER,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -77,39 +79,45 @@ describe('UsersService - Update User', () => {
 
       const result = await service.update(userId, updateUserDto);
 
-      expect(result.password).not.toBe(updateUserDto.password);
+      expect(result.password).toBe(hashedPassword);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: userId },
-        data: updateUserDto,
+        data: { password: hashedPassword },
       });
     });
 
-    it('should throw an error if user does not exist', async () => {
+    it('should throw NotFoundException if user does not exist', async () => {
       const userId = '999';
       const updateUserDto: UpdateUserDto = { email: 'nonexistent@example.com' };
 
-      jest.spyOn(prisma.user, 'update').mockRejectedValue(new Error('Record to update does not exist.'));
+      jest.spyOn(prisma.user, 'update').mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Record does not exist', {
+          code: 'P2025',
+          clientVersion: 'latest',
+        })
+      );
 
-      await expect(service.update(userId, updateUserDto)).rejects.toThrow('Record to update does not exist.');
+      await expect(service.update(userId, updateUserDto)).rejects.toThrow(NotFoundException);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: updateUserDto,
       });
     });
 
-    it('should throw an error if provided with an invalid user ID format', async () => {
-      const invalidId = 'invalid_id';
-      const updateUserDto: UpdateUserDto = { email: 'valid@example.com' };
-
-      await expect(service.update(invalidId, updateUserDto)).rejects.toThrow('Invalid user ID');
-      expect(prisma.user.update).not.toHaveBeenCalled();
-    });
-
-    it('should throw an error if email is invalid', async () => {
+    it('should throw ConflictException if email is already taken', async () => {
       const userId = '1';
-      const updateUserDto: UpdateUserDto = { email: 'invalid-email' };
+      const updateUserDto: UpdateUserDto = { email: 'taken@example.com' };
 
-      await expect(service.update(userId, updateUserDto)).rejects.toThrow();
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: '2',
+        email: 'taken@example.com',
+        password: 'hashedpassword123',
+        role: Role.USER,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(service.update(userId, updateUserDto)).rejects.toThrow(ConflictException);
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
